@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Traducteur — Texte & Conversation</title>
+<style>
+  :root{
+    --paper:#12161C;
+    --paper-glass:rgba(18,22,28,0.94);
+    --ink:#E7E4DC;
+    --blueprint:#6FA8DC;
+    --blueprint-light:#8CBEE8;
+    --safety:#FF7A45;
+    --safety-light:#FFA379;
+    --line:#33383F;
+    --bubble-a:#1E2A38;
+    --bubble-b:#332420;
+    --field-bg:#1B2028;
+    font-size:16px;
+  }
+  [data-theme="light"]{
+    --paper:#F7F5EF;
+    --paper-glass:rgba(247,245,239,0.94);
+    --ink:#1B2430;
+    --blueprint:#1B3A5C;
+    --blueprint-light:#2C5680;
+    --safety:#E8622C;
+    --safety-light:#F2905F;
+    --line:#C9C3B4;
+    --bubble-a:#E9F0F6;
+    --bubble-b:#FCEADF;
+    --field-bg:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body{
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:28px 28px;
+    background-attachment:fixed;
+    background-color:var(--paper);
+  }
+  .app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    background:var(--paper-glass);
+    display:flex;
+    flex-direction:column;
+  }
+
+  .theme-toggle{
+    background:none;
+    border:1.5px solid var(--blueprint);
+    border-radius:50%;
+    width:34px;height:34px;
+    font-size:1rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    color:var(--ink);
+    flex-shrink:0;
+  }
+
+  /* Titleblock header, like a drawing sheet */
+  header{
+    border-bottom:3px solid var(--blueprint);
+    padding:14px 16px 10px;
+    background:var(--paper);
+  }
+  .titleblock{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+  }
+  .titleblock h1{
+    font-family:'Courier New',monospace;
+    font-size:1.05rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    margin:0;
+    color:var(--blueprint);
+  }
+  .titleblock .ref{
+    font-family:'Courier New',monospace;
+    font-size:0.7rem;
+    color:var(--ink);
+    opacity:0.55;
+    text-align:right;
+  }
+
+  /* Mode switch styled like a control-panel toggle */
+  .mode-switch{
+    display:flex;
+    margin-top:12px;
+    border:2px solid var(--blueprint);
+    border-radius:6px;
+    overflow:hidden;
+  }
+  .mode-switch button{
+    flex:1;
+    padding:9px 4px;
+    background:var(--paper);
+    color:var(--blueprint);
+    border:none;
+    font-family:'Courier New',monospace;
+    font-size:0.75rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .mode-switch button.active{
+    background:var(--blueprint);
+    color:var(--paper);
+  }
+
+  /* Language bar with swap */
+  .lang-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+    background:var(--paper);
+  }
+  select{
+    flex:1;
+    font-family:'Courier New',monospace;
+    font-size:0.8rem;
+    padding:8px 6px;
+    border:1.5px solid var(--blueprint);
+    border-radius:4px;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .swap-btn{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:1.5px solid var(--safety);
+    background:var(--field-bg);
+    color:var(--safety);
+    font-size:1.1rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .swap-btn:active{ transform:scale(0.92); }
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---- TEXT MODE ---- */
+  .text-mode{
+    display:flex;
+    flex-direction:column;
+    flex:1;
+    padding:16px;
+    gap:12px;
+    overflow-y:auto;
+  }
+  .field-label{
+    font-family:'Courier New',monospace;
+    font-size:0.7rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--blueprint);
+    margin-bottom:4px;
+    display:flex;
+    justify-content:space-between;
+  }
+  textarea{
+    width:100%;
+    min-height:110px;
+    border:1.5px solid var(--line);
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:0.98rem;
+    font-family:inherit;
+    resize:vertical;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  textarea:focus{ outline:none; border-color:var(--blueprint); }
+  .translate-btn{
+    align-self:flex-start;
+    background:var(--safety);
+    color:white;
+    border:none;
+    padding:11px 22px;
+    border-radius:6px;
+    font-size:0.9rem;
+    font-weight:600;
+    letter-spacing:0.02em;
+    cursor:pointer;
+  }
+  .translate-btn:active{ background:var(--safety-light); }
+  .translate-btn:disabled{ opacity:0.5; }
+  .output-box{
+    border:1.5px dashed var(--blueprint-light);
+    border-radius:6px;
+    padding:12px;
+    background:var(--bubble-a);
+    min-height:90px;
+    font-size:0.98rem;
+    white-space:pre-wrap;
+    position:relative;
+  }
+  .copy-btn{
+    position:absolute;
+    top:8px; right:8px;
+    background:none;
+    border:1px solid var(--blueprint);
+    color:var(--blueprint);
+    font-family:'Courier New',monospace;
+    font-size:0.65rem;
+    padding:4px 8px;
+    border-radius:4px;
+    cursor:pointer;
+    text-transform:uppercase;
+  }
+  .placeholder-txt{ opacity:0.4; font-style:italic; }
+
+  /* ---- CONVERSATION MODE ---- */
+  .conv-mode{
+    display:flex;
+    flex-direction:column;
+    flex:1;
+    overflow:hidden;
+  }
+  .conv-log{
+    flex:1;
+    overflow-y:auto;
+    padding:14px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .bubble{
+    max-width:88%;
+    align-self:flex-start;
+    padding:9px 12px;
+    border-radius:12px;
+    border-bottom-left-radius:3px;
+    font-size:0.95rem;
+    line-height:1.35;
+  }
+  .bubble .orig{ color:var(--ink); display:block; }
+  .bubble .trans-line{
+    margin-top:5px;
+    padding-top:5px;
+    border-top:1px dashed rgba(0,0,0,0.15);
+    font-style:italic;
+    opacity:0.85;
+  }
+  .bubble .trans-line b{
+    font-style:normal;
+    font-weight:700;
+    opacity:0.7;
+    margin-right:4px;
+  }
+  .bubble .tag{
+    font-family:'Courier New',monospace;
+    font-size:0.62rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    opacity:0.6;
+    margin-bottom:1px;
+    display:block;
+    font-weight:700;
+  }
+  .bubble .lang-line{
+    font-family:'Courier New',monospace;
+    font-size:0.6rem;
+    opacity:0.75;
+    display:block;
+    margin-bottom:5px;
+  }
+  .empty-log{
+    margin:auto;
+    text-align:center;
+    opacity:0.4;
+    font-size:0.85rem;
+    font-family:'Courier New',monospace;
+    padding:0 30px;
+  }
+  .conv-inputs{
+    border-top:2px solid var(--blueprint);
+    background:var(--paper);
+    padding:10px 12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  /* Speaker chips (scrollable) */
+  .speakers-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .speakers-row::-webkit-scrollbar{ display:none; }
+  .speaker-chip{
+    font-family:'Courier New',monospace;
+    font-size:0.72rem;
+    letter-spacing:0.03em;
+    padding:7px 13px;
+    border-radius:16px;
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    opacity:0.55;
+    cursor:pointer;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .speaker-chip.active{
+    opacity:1;
+    font-weight:700;
+    border-width:2px;
+  }
+  .speaker-chip.compact{
+    padding:8px 4px;
+    min-width:40px;
+    text-align:center;
+    font-weight:700;
+    border-radius:20px;
+  }
+  .manager-toggle{
+    align-self:stretch;
+    background:var(--paper);
+    border:2px solid var(--safety);
+    border-radius:6px;
+    font-family:'Courier New',monospace;
+    font-size:0.75rem;
+    font-weight:700;
+    color:var(--safety);
+    opacity:1;
+    padding:9px 10px;
+    cursor:pointer;
+    text-align:center;
+    letter-spacing:0.02em;
+  }
+  .manager-toggle:active{ background:var(--safety); color:white; }
+  .speaker-manager{
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    padding:10px;
+    margin-bottom:2px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .manager-row{
+    display:flex;
+    gap:6px;
+    align-items:center;
+  }
+  .manager-row input[type=text]{
+    flex:1.3;
+    border:1.5px solid var(--line);
+    border-radius:5px;
+    padding:6px 8px;
+    font-size:0.82rem;
+    font-family:inherit;
+    min-width:0;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .manager-row select{
+    flex:1;
+    font-size:0.72rem;
+    padding:6px 4px;
+  }
+  .manager-row .lang-badge{
+    font-family:'Courier New',monospace;
+    font-size:0.62rem;
+    opacity:0.5;
+    white-space:nowrap;
+    flex-shrink:0;
+    min-width:64px;
+    text-align:center;
+  }
+  .manager-row.fixed input[type=text]{
+    background:var(--paper);
+    font-weight:700;
+    color:var(--blueprint);
+  }
+  .manager-row .del-btn{
+    background:none;
+    border:1.5px solid var(--line);
+    color:#c0392b;
+    border-radius:5px;
+    width:30px;height:30px;
+    flex-shrink:0;
+    cursor:pointer;
+    font-size:0.9rem;
+  }
+  .add-speaker-btn{
+    background:var(--paper);
+    border:1.5px dashed var(--blueprint);
+    color:var(--blueprint);
+    border-radius:6px;
+    padding:8px;
+    font-size:0.78rem;
+    font-family:'Courier New',monospace;
+    cursor:pointer;
+  }
+  .contacts-section{
+    border-top:1px dashed var(--line);
+    padding-top:8px;
+    margin-top:2px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .contacts-title{
+    font-family:'Courier New',monospace;
+    font-size:0.65rem;
+    opacity:0.6;
+  }
+  .contact-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .contact-row label{
+    flex:1;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:0.85rem;
+    cursor:pointer;
+  }
+  .contact-row input[type=checkbox]{
+    width:18px;height:18px;
+    accent-color:var(--safety);
+    flex-shrink:0;
+  }
+  .contact-row .forget-btn{
+    background:none;
+    border:none;
+    color:var(--line);
+    font-size:0.85rem;
+    cursor:pointer;
+    padding:2px 6px;
+  }
+  .contact-row .forget-btn:active{ color:#c0392b; }
+
+  .voice-hint{
+    text-align:center;
+    font-family:'Courier New',monospace;
+    font-size:0.65rem;
+    opacity:0.45;
+    margin:2px 0 2px;
+  }
+
+  /* Compose row: mic + text input + send */
+  .compose-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .compose-row input[type=text]{
+    flex:1;
+    border:1.5px solid var(--line);
+    border-radius:20px;
+    padding:9px 14px;
+    font-size:0.92rem;
+    font-family:inherit;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .compose-row input[type=text]:focus{ outline:none; border-color:var(--blueprint); }
+  .send-btn{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:none;
+    color:white;
+    font-size:1rem;
+    cursor:pointer;
+    flex-shrink:0;
+    background:var(--blueprint);
+  }
+  .send-btn:disabled{ opacity:0.4; }
+  .mic-btn{
+    width:44px;height:44px;
+    border-radius:50%;
+    border:none;
+    background:var(--ink);
+    color:white;
+    font-size:1.15rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background 0.15s;
+  }
+  .mic-btn.listening{
+    background:var(--safety);
+    animation:mic-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes mic-pulse{
+    0%{ box-shadow:0 0 0 0 rgba(232,98,44,0.55); }
+    70%{ box-shadow:0 0 0 14px rgba(232,98,44,0); }
+    100%{ box-shadow:0 0 0 0 rgba(232,98,44,0); }
+  }
+  .next-speaker-btn{
+    width:38px;height:38px;
+    border-radius:50%;
+    border:1.5px solid var(--blueprint);
+    background:none;
+    color:var(--blueprint);
+    font-size:1rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .next-speaker-btn:active{ background:var(--blueprint); color:white; }
+
+  .status-line{
+    font-family:'Courier New',monospace;
+    font-size:0.7rem;
+    color:var(--safety);
+    padding:0 16px;
+    min-height:16px;
+  }
+
+  /* ---- Meeting header / export ---- */
+  .meeting-bar{
+    padding:10px 16px 0;
+  }
+  .meeting-bar input[type=text]{
+    width:100%;
+    border:1.5px solid var(--line);
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:0.88rem;
+    font-family:inherit;
+    background:var(--field-bg);
+    color:var(--ink);
+  }
+  .meeting-actions{
+    display:flex;
+    gap:8px;
+    padding:8px 16px 10px;
+  }
+  .export-btn, .new-meeting-btn{
+    flex:1;
+    border-radius:6px;
+    padding:9px 6px;
+    font-size:0.68rem;
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .export-btn{
+    background:var(--safety);
+    border:none;
+    color:white;
+  }
+  .export-btn:disabled{ opacity:0.5; }
+  .new-meeting-btn{
+    background:none;
+    border:1.5px solid var(--line);
+    color:var(--ink);
+  }
+
+  /* ---- History mode ---- */
+  .history-mode{
+    flex:1;
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .history-empty{
+    margin:auto;
+    text-align:center;
+    opacity:0.4;
+    font-family:'Courier New',monospace;
+    font-size:0.85rem;
+    padding:0 20px;
+  }
+  .history-card{
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    padding:12px;
+    background:var(--field-bg);
+  }
+  .history-card-title{
+    font-weight:700;
+    font-size:0.95rem;
+    margin-bottom:4px;
+    color:var(--ink);
+  }
+  .history-card-meta{
+    font-family:'Courier New',monospace;
+    font-size:0.68rem;
+    opacity:0.65;
+    margin-bottom:2px;
+  }
+  .history-actions{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .history-actions button{
+    flex:1;
+    border-radius:5px;
+    padding:7px 4px;
+    font-size:0.72rem;
+    cursor:pointer;
+    font-family:'Courier New',monospace;
+    border:1.5px solid var(--blueprint);
+    background:var(--paper);
+    color:var(--blueprint);
+  }
+  .history-actions .history-del{
+    flex:0 0 34px;
+    border-color:#c0392b;
+    color:#c0392b;
+  }
+
+  ::-webkit-scrollbar{ width:6px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="titleblock">
+      <h1>Traducteur</h1>
+      <button class="theme-toggle" id="themeToggle" title="Changer de thème">🌙</button>
+    </div>
+    <div class="mode-switch">
+      <button id="btnModeText">Texte</button>
+      <button id="btnModeConv" class="active">Conversation</button>
+      <button id="btnModeHistory">Historique</button>
+    </div>
+  </header>
+
+  <div class="lang-bar" id="langBarText" style="display:none;">
+    <select id="langFrom"></select>
+    <button class="swap-btn" id="swapBtn" title="Inverser">⇄</button>
+    <select id="langTo"></select>
+  </div>
+
+  <div class="status-line" id="statusLine"></div>
+
+  <main>
+    <!-- TEXT MODE -->
+    <div class="text-mode" id="textMode" style="display:none;">
+      <div>
+        <div class="field-label">Texte source</div>
+        <textarea id="inputText" placeholder="Écrivez ou collez votre texte ici…"></textarea>
+      </div>
+      <button class="translate-btn" id="translateBtn">Traduire</button>
+      <div>
+        <div class="field-label">Traduction</div>
+        <div class="output-box" id="outputBox">
+          <button class="copy-btn" id="copyBtn" style="display:none;">Copier</button>
+          <span class="placeholder-txt" id="outputPlaceholder">La traduction apparaîtra ici…</span>
+          <span id="outputText"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONVERSATION MODE -->
+    <div class="conv-mode" id="convMode" style="display:flex;">
+      <div class="meeting-bar">
+        <input type="text" id="meetingSubject" placeholder="Objet de la réunion (optionnel)">
+      </div>
+      <div class="meeting-actions">
+        <button class="export-btn" id="exportBtn">📄 Terminer & exporter</button>
+        <button class="new-meeting-btn" id="newMeetingBtn">🔄 Nouvelle réunion</button>
+      </div>
+      <div class="conv-log" id="convLog">
+        <div class="empty-log" id="convEmpty">Ajoutez des locuteurs, sélectionnez qui parle, puis écrivez ou utilisez le micro. La langue de chaque message est détectée automatiquement.</div>
+      </div>
+      <div class="conv-inputs">
+        <div class="speakers-row" id="speakersRow"></div>
+        <button class="manager-toggle" id="managerToggle">✎ Ajouter un prénom / gérer les locuteurs</button>
+
+        <div class="speaker-manager" id="speakerManager" style="display:none;">
+          <div id="managerList"></div>
+          <button class="add-speaker-btn" id="addSpeakerBtn">+ Ajouter un nouvel interlocuteur</button>
+
+          <div class="contacts-section" id="contactsSection" style="display:none;">
+            <div class="contacts-title">📇 Interlocuteurs déjà rencontrés — cochez qui est présent</div>
+            <div id="contactsList"></div>
+          </div>
+        </div>
+
+        <div class="voice-hint" id="voiceHint">Appuyez sur le micro (il reste actif jusqu'au prochain appui)</div>
+        <div class="compose-row">
+          <button class="mic-btn" id="micBtn" title="Micro">🎤</button>
+          <button class="next-speaker-btn" id="nextSpeakerBtn" title="Locuteur suivant">⏭</button>
+          <input type="text" id="composeInput" placeholder="Écrire pour le locuteur sélectionné…">
+          <button class="send-btn compose-send" id="composeSend">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY MODE -->
+    <div class="history-mode" id="historyMode" style="display:none;">
+      <div class="history-empty" id="historyEmpty">Aucune réunion enregistrée pour l'instant.</div>
+      <div id="historyList"></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
+<script>
+const LANGUAGES = [
+  ["fr","Français"],["en","Anglais"],["de","Allemand"],["es","Espagnol"],
+  ["it","Italien"],["pt","Portugais"],["nl","Néerlandais"],["pl","Polonais"],
+  ["ro","Roumain"],["ar","Arabe"],["zh","Chinois"],["tr","Turc"]
+];
+
+function fillSelect(sel, def){
+  LANGUAGES.forEach(([code,name])=>{
+    const o=document.createElement("option");
+    o.value=code; o.textContent=name;
+    if(code===def) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+const langFrom=document.getElementById("langFrom");
+const langTo=document.getElementById("langTo");
+fillSelect(langFrom,"fr");
+fillSelect(langTo,"en");
+
+document.getElementById("swapBtn").onclick=()=>{
+  const a=langFrom.value, b=langTo.value;
+  langFrom.value=b; langTo.value=a;
+};
+
+// Mode switching
+const btnModeText=document.getElementById("btnModeText");
+const btnModeConv=document.getElementById("btnModeConv");
+const textMode=document.getElementById("textMode");
+const convMode=document.getElementById("convMode");
+const langBarText=document.getElementById("langBarText");
+
+const btnModeHistory=document.getElementById("btnModeHistory");
+const historyMode=document.getElementById("historyMode");
+
+function setActiveMode(mode){
+  btnModeText.classList.toggle("active", mode==="text");
+  btnModeConv.classList.toggle("active", mode==="conv");
+  btnModeHistory.classList.toggle("active", mode==="history");
+  textMode.style.display = mode==="text" ? "flex" : "none";
+  convMode.style.display = mode==="conv" ? "flex" : "none";
+  historyMode.style.display = mode==="history" ? "flex" : "none";
+  langBarText.style.display = mode==="text" ? "flex" : "none";
+}
+btnModeText.onclick=()=>setActiveMode("text");
+btnModeConv.onclick=()=>setActiveMode("conv");
+btnModeHistory.onclick=()=>setActiveMode("history");
+
+// ---- Thème clair / sombre (sombre par défaut) ----
+const themeToggle=document.getElementById("themeToggle");
+
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  themeToggle.textContent = theme==="dark" ? "🌙" : "☀️";
+}
+
+async function loadTheme(){
+  let theme="dark";
+  try{
+    const res=await window.storage.get("theme");
+    if(res && res.value) theme=res.value;
+  }catch(e){ /* pas encore de préférence enregistrée, on garde sombre par défaut */ }
+  applyTheme(theme);
+}
+
+themeToggle.onclick=async ()=>{
+  const current=document.documentElement.getAttribute("data-theme")==="light" ? "light" : "dark";
+  const next=current==="dark" ? "light" : "dark";
+  applyTheme(next);
+  try{ await window.storage.set("theme", next); }catch(e){ /* stockage indisponible, on continue sans bloquer */ }
+};
+
+loadTheme();
+
+function langName(code){
+  const f=LANGUAGES.find(l=>l[0]===code);
+  return f?f[1]:code;
+}
+
+function setStatus(msg, isError){
+  const s=document.getElementById("statusLine");
+  s.textContent=msg||"";
+  s.style.color=isError?"#c0392b":"var(--safety)";
+}
+
+async function callClaude(prompt){
+  const response=await fetch("/api/translate",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ prompt })
+  });
+  if(!response.ok){
+    throw new Error("Erreur API ("+response.status+")");
+  }
+  const data=await response.json();
+  return (data.text||"").trim();
+}
+
+// ---- TEXT MODE LOGIC ----
+const inputText=document.getElementById("inputText");
+const translateBtn=document.getElementById("translateBtn");
+const outputText=document.getElementById("outputText");
+const outputPlaceholder=document.getElementById("outputPlaceholder");
+const copyBtn=document.getElementById("copyBtn");
+
+translateBtn.onclick=async ()=>{
+  const src=inputText.value.trim();
+  if(!src) return;
+  const from=langName(langFrom.value), to=langName(langTo.value);
+  translateBtn.disabled=true;
+  translateBtn.textContent="Traduction…";
+  setStatus("");
+  try{
+    const prompt=`Traduis le texte suivant du ${from} vers le ${to}. Réponds uniquement avec la traduction, sans aucun commentaire ni guillemets, en conservant la mise en forme, les noms propres et les codes techniques inchangés.\n\nTexte:\n${src}`;
+    const result=await callClaude(prompt);
+    outputPlaceholder.style.display="none";
+    outputText.textContent=result;
+    copyBtn.style.display="inline-block";
+  }catch(e){
+    setStatus("Échec de la traduction — vérifiez la connexion.", true);
+  }finally{
+    translateBtn.disabled=false;
+    translateBtn.textContent="Traduire";
+  }
+};
+
+copyBtn.onclick=()=>{
+  navigator.clipboard.writeText(outputText.textContent).then(()=>{
+    copyBtn.textContent="Copié !";
+    setTimeout(()=>copyBtn.textContent="Copier",1200);
+  });
+};
+
+// ---- CONVERSATION MODE LOGIC (multi-speaker, auto language detection) ----
+const convLog=document.getElementById("convLog");
+const convEmpty=document.getElementById("convEmpty");
+const speakersRow=document.getElementById("speakersRow");
+const managerToggle=document.getElementById("managerToggle");
+const speakerManager=document.getElementById("speakerManager");
+const managerList=document.getElementById("managerList");
+const addSpeakerBtn=document.getElementById("addSpeakerBtn");
+const contactsSection=document.getElementById("contactsSection");
+const contactsList=document.getElementById("contactsList");
+const composeInput=document.getElementById("composeInput");
+const composeSend=document.getElementById("composeSend");
+const voiceHint=document.getElementById("voiceHint");
+const micBtn=document.getElementById("micBtn");
+
+const PALETTE_BG_LIGHT=["#E9F0F6","#FCEADF","#E8F2E9","#EFE8F4","#FBF3D9","#E3F3F1"];
+const PALETTE_ACCENT_LIGHT=["#1B3A5C","#E8622C","#2E7D46","#7B4FA0","#B08900","#1A7A73"];
+const PALETTE_BG_DARK=["#1E2A38","#332420","#1E2E22","#2A2035","#332B12","#1B2E2C"];
+const PALETTE_ACCENT_DARK=["#8FC1E8","#FFA379","#7FCB93","#C9A6E0","#E8C860","#6FCFC4"];
+
+let speakers=[
+  {id:1, name:"Moi", lang:"fr", fixed:true},
+  {id:2, name:"", lang:null}
+];
+let nextSpeakerId=3;
+let currentSpeakerId=1;
+
+function colorFor(speakerId){
+  const idx=speakers.findIndex(s=>s.id===speakerId);
+  const i=idx<0?0:idx % PALETTE_BG_LIGHT.length;
+  const dark=document.documentElement.getAttribute("data-theme")!=="light";
+  return dark
+    ? {bg:PALETTE_BG_DARK[i], accent:PALETTE_ACCENT_DARK[i]}
+    : {bg:PALETTE_BG_LIGHT[i], accent:PALETTE_ACCENT_LIGHT[i]};
+}
+
+function codeFromDetectedName(name){
+  if(!name) return null;
+  const norm=name.trim().toLowerCase();
+  const f=LANGUAGES.find(l=>l[1].toLowerCase()===norm);
+  return f?f[0]:null;
+}
+
+function fallbackLabel(sp){
+  const others=speakers.filter(s=>!s.fixed);
+  const idx=others.findIndex(s=>s.id===sp.id);
+  return "Interlocuteur "+(idx+2);
+}
+
+function getDisplayName(sp){
+  if(sp.fixed) return sp.name || "Moi";
+  return (sp.name && sp.name.trim()) ? sp.name.trim() : fallbackLabel(sp);
+}
+
+function renderChips(){
+  speakersRow.innerHTML="";
+  const collapsed=speakerManager.style.display==="none";
+  speakers.forEach(sp=>{
+    const c=colorFor(sp.id);
+    const chip=document.createElement("button");
+    chip.className="speaker-chip"+(sp.id===currentSpeakerId?" active":"")+(collapsed?" compact":"");
+    chip.style.borderColor=c.accent;
+    chip.style.background=c.bg;
+    chip.style.color=c.accent;
+    if(collapsed){
+      const full=getDisplayName(sp);
+      chip.textContent=sp.fixed ? full : full.slice(0,3).toUpperCase();
+      chip.title=full+(sp.lang?" · "+langName(sp.lang):"");
+    }else{
+      chip.textContent=sp.fixed ? getDisplayName(sp) : getDisplayName(sp)+(sp.lang?" · "+langName(sp.lang):" · auto");
+    }
+    chip.onclick=()=>selectSpeaker(sp.id);
+    speakersRow.appendChild(chip);
+  });
+}
+
+function renderManager(){
+  managerList.innerHTML="";
+  speakers.forEach(sp=>{
+    const row=document.createElement("div");
+    row.className="manager-row"+(sp.fixed?" fixed":"");
+
+    if(sp.fixed){
+      const label=document.createElement("input");
+      label.type="text";
+      label.value="Moi";
+      label.disabled=true;
+      row.appendChild(label);
+
+      const badge=document.createElement("span");
+      badge.className="lang-badge";
+      badge.textContent="Français (fixe)";
+      row.appendChild(badge);
+    }else{
+      const fbLabel=document.createElement("span");
+      fbLabel.className="lang-badge";
+      fbLabel.style.minWidth="auto";
+      fbLabel.textContent=fallbackLabel(sp)+" :";
+
+      const nameInput=document.createElement("input");
+      nameInput.type="text";
+      nameInput.value=sp.name;
+      nameInput.placeholder="Prénom (optionnel)";
+      nameInput.oninput=()=>{ sp.name=nameInput.value; renderChips(); };
+      nameInput.onblur=()=>{ addContact(sp.name); };
+
+      const badge=document.createElement("span");
+      badge.className="lang-badge";
+      badge.textContent=sp.lang ? ("Langue détectée : "+langName(sp.lang)) : "Détection auto…";
+
+      const delBtn=document.createElement("button");
+      delBtn.className="del-btn";
+      delBtn.textContent="✕";
+      delBtn.title="Supprimer";
+      delBtn.onclick=()=>{
+        speakers=speakers.filter(s=>s.id!==sp.id);
+        if(currentSpeakerId===sp.id) currentSpeakerId=speakers[0].id;
+        renderChips(); renderManager(); renderContacts();
+      };
+
+      row.appendChild(fbLabel);
+      row.appendChild(nameInput);
+      row.appendChild(badge);
+      row.appendChild(delBtn);
+    }
+
+    managerList.appendChild(row);
+  });
+}
+
+addSpeakerBtn.onclick=()=>{
+  const id=nextSpeakerId++;
+  speakers.push({id, name:"", lang:null});
+  renderChips(); renderManager();
+};
+
+managerToggle.onclick=()=>{
+  const showing=speakerManager.style.display!=="none";
+  speakerManager.style.display=showing?"none":"flex";
+  managerToggle.textContent=showing?"✎ Ajouter un prénom / gérer les locuteurs":"✕ Fermer";
+  renderChips();
+};
+
+function selectSpeaker(id){
+  currentSpeakerId=id;
+  renderChips();
+  if(isListening) applyRecognitionLang(true);
+}
+
+const nextSpeakerBtn=document.getElementById("nextSpeakerBtn");
+nextSpeakerBtn.onclick=()=>{
+  const idx=speakers.findIndex(s=>s.id===currentSpeakerId);
+  const next=speakers[(idx+1)%speakers.length];
+  selectSpeaker(next.id);
+};
+
+// ---- Carnet d'adresses persistant (interlocuteurs déjà rencontrés) ----
+let savedContacts=[];
+
+async function loadContacts(){
+  try{
+    const res=await window.storage.get("contacts");
+    savedContacts=res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){
+    savedContacts=[];
+  }
+  renderContacts();
+}
+
+async function persistContacts(){
+  try{ await window.storage.set("contacts", JSON.stringify(savedContacts)); }
+  catch(e){ /* stockage indisponible, on continue sans bloquer l'appli */ }
+}
+
+function addContact(name){
+  const trimmed=(name||"").trim();
+  if(!trimmed) return;
+  if(!savedContacts.some(c=>c.toLowerCase()===trimmed.toLowerCase())){
+    savedContacts.push(trimmed);
+    persistContacts();
+  }
+  renderContacts();
+}
+
+function forgetContact(name){
+  savedContacts=savedContacts.filter(c=>c!==name);
+  persistContacts();
+  renderContacts();
+}
+
+function isContactActive(name){
+  return speakers.some(s=>!s.fixed && s.name.trim().toLowerCase()===name.toLowerCase());
+}
+
+function toggleContactPresence(name, present){
+  if(present){
+    if(isContactActive(name)) return;
+    const id=nextSpeakerId++;
+    speakers.push({id, name, lang:null});
+  }else{
+    speakers=speakers.filter(s=>s.fixed || s.name.trim().toLowerCase()!==name.toLowerCase());
+    if(!speakers.some(s=>s.id===currentSpeakerId)) currentSpeakerId=speakers[0].id;
+  }
+  renderChips(); renderManager(); renderContacts();
+}
+
+function renderContacts(){
+  contactsList.innerHTML="";
+  if(savedContacts.length===0){
+    contactsSection.style.display="none";
+    return;
+  }
+  contactsSection.style.display="flex";
+  savedContacts.forEach(name=>{
+    const row=document.createElement("div");
+    row.className="contact-row";
+
+    const label=document.createElement("label");
+    const checkbox=document.createElement("input");
+    checkbox.type="checkbox";
+    checkbox.checked=isContactActive(name);
+    checkbox.onchange=()=>toggleContactPresence(name, checkbox.checked);
+    const span=document.createElement("span");
+    span.textContent=name;
+    label.appendChild(checkbox);
+    label.appendChild(span);
+
+    const forgetBtn=document.createElement("button");
+    forgetBtn.className="forget-btn";
+    forgetBtn.textContent="✕";
+    forgetBtn.title="Oublier ce contact";
+    forgetBtn.onclick=()=>forgetContact(name);
+
+    row.appendChild(label);
+    row.appendChild(forgetBtn);
+    contactsList.appendChild(row);
+  });
+}
+
+renderChips();
+renderManager();
+loadContacts();
+
+function getSpeaker(id){ return speakers.find(s=>s.id===id); }
+function effectiveLangName(sp){
+  if(sp.fixed) return langName(sp.lang);
+  return sp.lang ? langName(sp.lang) : null;
+}
+
+async function translateMulti(text, targetLangNames){
+  const prompt=`Tu es un moteur de traduction. Détecte automatiquement la langue du texte suivant, puis traduis-le vers chacune des langues cibles listées ci-dessous (ignore une langue cible si elle est identique à la langue détectée). Réponds uniquement avec un objet JSON valide, sans balises markdown ni aucun texte additionnel, au format exact:\n{"detected":"<langue détectée, en français>","translations":{"<langue cible>":"<traduction>"}}\n\nTexte: "${text}"\n\nLangues cibles: ${targetLangNames.join(", ")}`;
+  const raw=await callClaude(prompt);
+  const clean=raw.replace(/```json|```/g,"").trim();
+  return JSON.parse(clean);
+}
+
+async function postMessage(speakerId, text){
+  const speaker=getSpeaker(speakerId);
+  if(!speaker || !text) return;
+  const c=colorFor(speakerId);
+  const displayName=getDisplayName(speaker);
+
+  if(!meetingStartTime) meetingStartTime=new Date();
+  const entry={ speaker:displayName, detected: speaker.fixed?"Français":null, original:text, translations:{} };
+  transcriptLog.push(entry);
+
+  convEmpty.style.display="none";
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  bubble.style.background=c.bg;
+  bubble.innerHTML=`<span class="tag" style="color:${c.accent}">${displayName}</span><span class="lang-line" style="color:${c.accent}">${speaker.fixed?"":"Détection en cours…"}</span><span class="orig"></span><div class="trans-block"></div>`;
+  bubble.querySelector(".orig").textContent=text;
+  convLog.appendChild(bubble);
+  convLog.scrollTop=convLog.scrollHeight;
+
+  const targetNames=[...new Set(
+    speakers.filter(s=>s.id!==speakerId).map(effectiveLangName).filter(Boolean)
+  )];
+  const langLine=bubble.querySelector(".lang-line");
+  const transBlock=bubble.querySelector(".trans-block");
+
+  if(targetNames.length===0){
+    langLine.textContent="";
+    return;
+  }
+
+  try{
+    const result=await translateMulti(text, targetNames);
+    langLine.textContent="Langue détectée : "+(result.detected||"inconnue");
+    entry.detected=result.detected||entry.detected;
+    entry.translations=result.translations||{};
+    transBlock.innerHTML="";
+    Object.entries(result.translations||{}).forEach(([lang, txt])=>{
+      const line=document.createElement("div");
+      line.className="trans-line";
+      line.innerHTML=`<b>${lang}:</b>`;
+      line.appendChild(document.createTextNode(" "+txt));
+      transBlock.appendChild(line);
+    });
+    if(!speaker.fixed){
+      const code=codeFromDetectedName(result.detected);
+      if(code){
+        speaker.lang=code;
+        renderChips(); renderManager();
+      }
+    }
+  }catch(e){
+    langLine.textContent="";
+    transBlock.innerHTML=`<div class="trans-line">(échec de la traduction)</div>`;
+    entry.translations={"Erreur":"Échec de la traduction"};
+    setStatus("Échec de la traduction — vérifiez la connexion.", true);
+  }finally{
+    convLog.scrollTop=convLog.scrollHeight;
+  }
+}
+
+function sendComposeMessage(){
+  const text=composeInput.value.trim();
+  if(!text) return;
+  composeInput.value="";
+  setStatus("");
+  postMessage(currentSpeakerId, text);
+}
+composeSend.onclick=sendComposeMessage;
+composeInput.addEventListener("keydown", e=>{ if(e.key==="Enter") sendComposeMessage(); });
+
+// ---- Export réunion (PDF / Word) + historique persistant ----
+const meetingSubjectInput=document.getElementById("meetingSubject");
+const exportBtn=document.getElementById("exportBtn");
+const newMeetingBtn=document.getElementById("newMeetingBtn");
+const historyList=document.getElementById("historyList");
+const historyEmpty=document.getElementById("historyEmpty");
+
+let meetingStartTime=null;
+let transcriptLog=[];
+let meetingHistory=[];
+
+function pad2(n){ return n.toString().padStart(2,"0"); }
+function formatTime(d){ return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+function formatDate(d){ return pad2(d.getDate())+"/"+pad2(d.getMonth()+1)+"/"+d.getFullYear(); }
+
+function buildMeetingMeta(){
+  const subject=meetingSubjectInput.value.trim() || "Non renseigné";
+  const start=meetingStartTime || new Date();
+  const end=new Date();
+  return {
+    subject,
+    date: formatDate(start),
+    startTime: formatTime(start),
+    endTime: formatTime(end),
+    presents: speakers.map(getDisplayName),
+    transcript: transcriptLog.slice()
+  };
+}
+
+function generatePDF(meta){
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF({ unit:"pt", format:"a4" });
+  const marginX=40; let y=54;
+  const pageHeight=doc.internal.pageSize.getHeight();
+  const maxWidth=515;
+
+  function ensureSpace(){
+    if(y>pageHeight-50){ doc.addPage(); y=54; }
+  }
+  function addLine(text, opts={}){
+    const { bold=false, size=10, gap=14 } = opts;
+    doc.setFont(undefined, bold?"bold":"normal");
+    doc.setFontSize(size);
+    doc.splitTextToSize(String(text), maxWidth).forEach(line=>{
+      ensureSpace();
+      doc.text(line, marginX, y);
+      y+=gap;
+    });
+  }
+
+  addLine("Compte-rendu de réunion", { bold:true, size:16, gap:22 });
+  addLine("Objet : "+meta.subject, { bold:true, size:11, gap:16 });
+  addLine("Date : "+meta.date+"   |   Début : "+meta.startTime+"   |   Fin : "+meta.endTime, { gap:14 });
+  addLine("Présents : "+meta.presents.join(", "), { gap:14 });
+  y+=6;
+  doc.setDrawColor(180);
+  doc.line(marginX, y, marginX+maxWidth, y);
+  y+=16;
+
+  meta.transcript.forEach(e=>{
+    addLine(e.speaker+(e.detected?" ("+e.detected+")":""), { bold:true, size:10.5, gap:14 });
+    addLine(e.original, { size:10, gap:13 });
+    Object.entries(e.translations||{}).forEach(([lang, txt])=>{
+      addLine(lang+" : "+txt, { size:9.5, gap:12 });
+    });
+    y+=8;
+  });
+
+  return doc;
+}
+
+async function generateDocx(meta){
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = window.docx;
+  const children=[
+    new Paragraph({ text:"Compte-rendu de réunion", heading:HeadingLevel.HEADING_1 }),
+    new Paragraph({ children:[ new TextRun({text:"Objet : ", bold:true}), new TextRun(meta.subject) ] }),
+    new Paragraph({ children:[ new TextRun({text:"Date : ", bold:true}), new TextRun(meta.date+"    Début : "+meta.startTime+"    Fin : "+meta.endTime) ] }),
+    new Paragraph({ children:[ new TextRun({text:"Présents : ", bold:true}), new TextRun(meta.presents.join(", ")) ] }),
+    new Paragraph({ text:"" })
+  ];
+
+  meta.transcript.forEach(e=>{
+    children.push(new Paragraph({ children:[ new TextRun({text:e.speaker+(e.detected?" ("+e.detected+")":""), bold:true}) ] }));
+    children.push(new Paragraph({ text:e.original }));
+    Object.entries(e.translations||{}).forEach(([lang, txt])=>{
+      children.push(new Paragraph({ children:[ new TextRun({text:lang+" : ", italics:true}), new TextRun({text:txt, italics:true}) ] }));
+    });
+    children.push(new Paragraph({ text:"" }));
+  });
+
+  const doc=new Document({ sections:[{ children }] });
+  return await Packer.toBlob(doc);
+}
+
+function downloadBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+async function loadHistory(){
+  try{
+    const res=await window.storage.get("history");
+    meetingHistory = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ meetingHistory=[]; }
+  renderHistory();
+}
+
+async function persistHistory(){
+  try{ await window.storage.set("history", JSON.stringify(meetingHistory)); }
+  catch(e){ /* stockage indisponible, on continue sans bloquer */ }
+}
+
+async function saveToHistory(meta){
+  meetingHistory.unshift(Object.assign({ id: Date.now() }, meta));
+  await persistHistory();
+  renderHistory();
+}
+
+function deleteHistoryEntry(id){
+  meetingHistory=meetingHistory.filter(m=>m.id!==id);
+  persistHistory();
+  renderHistory();
+}
+
+function renderHistory(){
+  historyList.innerHTML="";
+  if(meetingHistory.length===0){
+    historyEmpty.style.display="block";
+    return;
+  }
+  historyEmpty.style.display="none";
+  meetingHistory.forEach(m=>{
+    const card=document.createElement("div");
+    card.className="history-card";
+    card.innerHTML=`
+      <div class="history-card-title">${m.subject}</div>
+      <div class="history-card-meta">${m.date} · ${m.startTime} – ${m.endTime}</div>
+      <div class="history-card-meta">Présents : ${m.presents.join(", ")}</div>
+    `;
+    const actions=document.createElement("div");
+    actions.className="history-actions";
+
+    const pdfBtn=document.createElement("button");
+    pdfBtn.textContent="📄 PDF";
+    pdfBtn.onclick=()=>{
+      const doc=generatePDF(m);
+      doc.save("reunion_"+m.date.replace(/\//g,"-")+".pdf");
+    };
+
+    const docxBtn=document.createElement("button");
+    docxBtn.textContent="📝 Word";
+    docxBtn.onclick=async ()=>{
+      docxBtn.disabled=true;
+      try{
+        const blob=await generateDocx(m);
+        downloadBlob(blob, "reunion_"+m.date.replace(/\//g,"-")+".docx");
+      }catch(e){ setStatus("Erreur lors de la génération Word.", true); }
+      finally{ docxBtn.disabled=false; }
+    };
+
+    const delBtn=document.createElement("button");
+    delBtn.className="history-del";
+    delBtn.textContent="✕";
+    delBtn.title="Supprimer de l'historique";
+    delBtn.onclick=()=>{ deleteHistoryEntry(m.id); };
+
+    actions.appendChild(pdfBtn);
+    actions.appendChild(docxBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+    historyList.appendChild(card);
+  });
+}
+
+exportBtn.onclick=async ()=>{
+  if(transcriptLog.length===0){
+    setStatus("Aucun message à exporter pour l'instant.", true);
+    return;
+  }
+  exportBtn.disabled=true;
+  exportBtn.textContent="Génération…";
+  try{
+    const meta=buildMeetingMeta();
+    const base="reunion_"+meta.date.replace(/\//g,"-")+"_"+meta.startTime.replace(":","h");
+
+    const pdfDoc=generatePDF(meta);
+    pdfDoc.save(base+".pdf");
+
+    const docxBlob=await generateDocx(meta);
+    downloadBlob(docxBlob, base+".docx");
+
+    await saveToHistory(meta);
+    setStatus("Réunion exportée (PDF + Word) et enregistrée dans l'historique.", false);
+  }catch(e){
+    setStatus("Erreur lors de l'export : "+e.message, true);
+  }finally{
+    exportBtn.disabled=false;
+    exportBtn.textContent="📄 Terminer & exporter";
+  }
+};
+
+newMeetingBtn.onclick=()=>{
+  if(transcriptLog.length>0 && !confirm("Démarrer une nouvelle réunion ? La conversation actuelle sera effacée de l'écran (pensez à l'exporter avant si besoin).")) return;
+  transcriptLog=[];
+  meetingStartTime=null;
+  meetingSubjectInput.value="";
+  Array.from(convLog.children).forEach(ch=>{ if(ch.id!=="convEmpty") ch.remove(); });
+  convEmpty.style.display="block";
+  speakers=[{id:1, name:"Moi", lang:"fr", fixed:true}];
+  nextSpeakerId=2;
+  currentSpeakerId=1;
+  renderChips(); renderManager(); renderContacts();
+  setStatus("");
+};
+
+loadHistory();
+
+// ---- SHARED MICROPHONE (toggle: press once to start, press again to stop) ----
+const BCP47={ fr:"fr-FR", en:"en-US", de:"de-DE", es:"es-ES", it:"it-IT",
+  pt:"pt-PT", nl:"nl-NL", pl:"pl-PL", ro:"ro-RO", ar:"ar-SA", zh:"zh-CN", tr:"tr-TR" };
+
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognitionSupported = !!SpeechRecognitionCtor;
+let recognition=null;
+let isListening=false;
+
+function recognitionLangFor(sp){
+  if(sp && sp.lang && BCP47[sp.lang]) return BCP47[sp.lang];
+  // Langue pas encore détectée : on part sur la langue du téléphone en repli
+  return navigator.language || "fr-FR";
+}
+
+if(recognitionSupported){
+  recognition=new SpeechRecognitionCtor();
+  recognition.continuous=true;
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+
+  recognition.onresult=(event)=>{
+    const last=event.results[event.results.length-1];
+    const transcript=last[0].transcript.trim();
+    if(transcript){
+      postMessage(currentSpeakerId, transcript);
+    }
+  };
+
+  recognition.onerror=(event)=>{
+    if(event.error==="not-allowed" || event.error==="service-not-allowed"){
+      isListening=false;
+      micBtn.classList.remove("listening");
+      voiceHint.textContent="Micro refusé par le navigateur";
+      setStatus("Accès micro bloqué. Si vous testez dans l'aperçu Claude, ouvrez le fichier directement dans votre navigateur (ou déployez-le en HTTPS). Sinon, autorisez le micro dans les réglages du site (icône ⓘ ou 🔒 à côté de l'adresse → Autorisations → Micro).", true);
+    }else if(event.error!=="no-speech" && event.error!=="aborted"){
+      setStatus("Erreur micro : "+event.error, true);
+    }
+  };
+
+  recognition.onend=()=>{
+    // Auto-restart while the mic is toggled "on" (lock-on behavior)
+    if(isListening){
+      try{
+        const sp=getSpeaker(currentSpeakerId);
+        recognition.lang=recognitionLangFor(sp);
+        recognition.start();
+      }catch(e){ /* already started, ignore */ }
+    }
+  };
+}else{
+  micBtn.disabled=true;
+  voiceHint.textContent="Reconnaissance vocale non disponible sur ce navigateur.";
+}
+
+function applyRecognitionLang(restart){
+  if(!recognitionSupported) return;
+  const sp=getSpeaker(currentSpeakerId);
+  const lang=recognitionLangFor(sp);
+  voiceHint.textContent="Écoute active pour "+(sp?getDisplayName(sp):"")+" — appuyez à nouveau pour arrêter";
+  if(restart && isListening){
+    recognition.lang=lang;
+    try{ recognition.stop(); }catch(e){ /* onend restarts with new lang */ }
+  }
+}
+
+micBtn.onclick=()=>{
+  if(!recognitionSupported) return;
+  if(!isListening){
+    isListening=true;
+    micBtn.classList.add("listening");
+    setStatus("");
+    const sp=getSpeaker(currentSpeakerId);
+    voiceHint.textContent="Écoute active pour "+(sp?getDisplayName(sp):"")+" — appuyez à nouveau pour arrêter";
+    try{
+      recognition.lang=recognitionLangFor(sp);
+      recognition.start();
+    }catch(e){ /* ignore */ }
+  }else{
+    isListening=false;
+    micBtn.classList.remove("listening");
+    voiceHint.textContent="Appuyez sur le micro (il reste actif jusqu'au prochain appui)";
+    try{ recognition.stop(); }catch(e){ /* ignore */ }
+  }
+};
+</script>
+</body>
+</html>
