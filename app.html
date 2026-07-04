@@ -724,7 +724,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
 <script>
 const LANGUAGES = [
   ["fr","Français"],["en","Anglais"],["de","Allemand"],["es","Espagnol"],
@@ -1262,27 +1261,45 @@ function generatePDF(meta){
   return doc;
 }
 
-async function generateDocx(meta){
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = window.docx;
-  const children=[
-    new Paragraph({ text:"Compte-rendu de réunion", heading:HeadingLevel.HEADING_1 }),
-    new Paragraph({ children:[ new TextRun({text:"Objet : ", bold:true}), new TextRun(meta.subject) ] }),
-    new Paragraph({ children:[ new TextRun({text:"Date : ", bold:true}), new TextRun(meta.date+"    Début : "+meta.startTime+"    Fin : "+meta.endTime) ] }),
-    new Paragraph({ children:[ new TextRun({text:"Présents : ", bold:true}), new TextRun(meta.presents.join(", ")) ] }),
-    new Paragraph({ text:"" })
-  ];
+function rtfEscape(str){
+  let out="";
+  for(const ch of String(str)){
+    const code=ch.codePointAt(0);
+    if(ch==="\\") out+="\\\\";
+    else if(ch==="{") out+="\\{";
+    else if(ch==="}") out+="\\}";
+    else if(code>127) out+="\\u"+code+"?";
+    else out+=ch;
+  }
+  return out;
+}
+
+function rtfPar(text, opts={}){
+  const {bold=false, italic=false}=opts;
+  const open=(bold?"\\b ":"")+(italic?"\\i ":"");
+  const close=(italic?"\\i0 ":"")+(bold?"\\b0 ":"");
+  return "{"+open+rtfEscape(text)+close+"}\\par\n";
+}
+
+function generateDocx(meta){
+  let body="";
+  body+=rtfPar("Compte-rendu de réunion", {bold:true});
+  body+=rtfPar("Objet : "+meta.subject, {bold:true});
+  body+=rtfPar("Date : "+meta.date+"    Début : "+meta.startTime+"    Fin : "+meta.endTime);
+  body+=rtfPar("Présents : "+meta.presents.join(", "));
+  body+="\\par\n";
 
   meta.transcript.forEach(e=>{
-    children.push(new Paragraph({ children:[ new TextRun({text:e.speaker+(e.detected?" ("+e.detected+")":""), bold:true}) ] }));
-    children.push(new Paragraph({ text:e.original }));
+    body+=rtfPar(e.speaker+(e.detected?" ("+e.detected+")":""), {bold:true});
+    body+=rtfPar(e.original);
     Object.entries(e.translations||{}).forEach(([lang, txt])=>{
-      children.push(new Paragraph({ children:[ new TextRun({text:lang+" : ", italics:true}), new TextRun({text:txt, italics:true}) ] }));
+      body+=rtfPar(lang+" : "+txt, {italic:true});
     });
-    children.push(new Paragraph({ text:"" }));
+    body+="\\par\n";
   });
 
-  const doc=new Document({ sections:[{ children }] });
-  return await Packer.toBlob(doc);
+  const rtf="{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Calibri;}}\\f0\\fs22 "+body+"}";
+  return new Blob([rtf], {type:"application/rtf"});
 }
 
 function downloadBlob(blob, filename){
@@ -1349,7 +1366,7 @@ function renderHistory(){
       docxBtn.disabled=true;
       try{
         const blob=await generateDocx(m);
-        downloadBlob(blob, "reunion_"+m.date.replace(/\//g,"-")+".docx");
+        downloadBlob(blob, "reunion_"+m.date.replace(/\//g,"-")+".rtf");
       }catch(e){ setStatus("Erreur lors de la génération Word.", true); }
       finally{ docxBtn.disabled=false; }
     };
@@ -1383,7 +1400,7 @@ exportBtn.onclick=async ()=>{
     pdfDoc.save(base+".pdf");
 
     const docxBlob=await generateDocx(meta);
-    downloadBlob(docxBlob, base+".docx");
+    downloadBlob(docxBlob, base+".rtf");
 
     await saveToHistory(meta);
     setStatus("Réunion exportée (PDF + Word) et enregistrée dans l'historique.", false);
