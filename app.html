@@ -780,20 +780,20 @@ function applyTheme(theme){
   themeToggle.textContent = theme==="dark" ? "🌙" : "☀️";
 }
 
-async function loadTheme(){
+function loadTheme(){
   let theme="dark";
   try{
-    const res=await window.storage.get("theme");
-    if(res && res.value) theme=res.value;
-  }catch(e){ /* pas encore de préférence enregistrée, on garde sombre par défaut */ }
+    const t=localStorage.getItem("theme");
+    if(t) theme=t;
+  }catch(e){ /* stockage indisponible, on garde sombre par défaut */ }
   applyTheme(theme);
 }
 
-themeToggle.onclick=async ()=>{
+themeToggle.onclick=()=>{
   const current=document.documentElement.getAttribute("data-theme")==="light" ? "light" : "dark";
   const next=current==="dark" ? "light" : "dark";
   applyTheme(next);
-  try{ await window.storage.set("theme", next); }catch(e){ /* stockage indisponible, on continue sans bloquer */ }
+  try{ localStorage.setItem("theme", next); }catch(e){ /* stockage indisponible, on continue sans bloquer */ }
 };
 
 loadTheme();
@@ -1023,18 +1023,18 @@ nextSpeakerBtn.onclick=()=>{
 // ---- Carnet d'adresses persistant (interlocuteurs déjà rencontrés) ----
 let savedContacts=[];
 
-async function loadContacts(){
+function loadContacts(){
   try{
-    const res=await window.storage.get("contacts");
-    savedContacts=res && res.value ? JSON.parse(res.value) : [];
+    const raw=localStorage.getItem("contacts");
+    savedContacts=raw ? JSON.parse(raw) : [];
   }catch(e){
     savedContacts=[];
   }
   renderContacts();
 }
 
-async function persistContacts(){
-  try{ await window.storage.set("contacts", JSON.stringify(savedContacts)); }
+function persistContacts(){
+  try{ localStorage.setItem("contacts", JSON.stringify(savedContacts)); }
   catch(e){ /* stockage indisponible, on continue sans bloquer l'appli */ }
 }
 
@@ -1310,22 +1310,22 @@ function downloadBlob(blob, filename){
   setTimeout(()=>URL.revokeObjectURL(url), 3000);
 }
 
-async function loadHistory(){
+function loadHistory(){
   try{
-    const res=await window.storage.get("history");
-    meetingHistory = res && res.value ? JSON.parse(res.value) : [];
+    const raw=localStorage.getItem("history");
+    meetingHistory = raw ? JSON.parse(raw) : [];
   }catch(e){ meetingHistory=[]; }
   renderHistory();
 }
 
-async function persistHistory(){
-  try{ await window.storage.set("history", JSON.stringify(meetingHistory)); }
+function persistHistory(){
+  try{ localStorage.setItem("history", JSON.stringify(meetingHistory)); }
   catch(e){ /* stockage indisponible, on continue sans bloquer */ }
 }
 
 async function saveToHistory(meta){
   meetingHistory.unshift(Object.assign({ id: Date.now() }, meta));
-  await persistHistory();
+  persistHistory();
   renderHistory();
 }
 
